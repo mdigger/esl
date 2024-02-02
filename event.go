@@ -3,9 +3,11 @@ package esl
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/url"
 	"slices"
 	"strconv"
@@ -104,6 +106,17 @@ func (e Event) WriteTo(w io.Writer) (int64, error) {
 // String returns a string representation of the Event.
 func (e Event) String() string {
 	return wstr(e)
+}
+
+// MarshalJSON is a Go function that marshals the Event to JSON.
+func (e Event) MarshalJSON() ([]byte, error) {
+	h := e.headers
+	if len(e.body) > 0 {
+		h = maps.Clone(h)
+		h["_body"] = string(e.body)
+	}
+
+	return json.Marshal(h)
 }
 
 // LogValue returns the log value of the Event.
