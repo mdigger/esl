@@ -6,9 +6,13 @@ import (
 	"log/slog"
 )
 
+// Option is a function type used to modify configuration options.
 type Option func(*config)
 
 // WithEvents returns an Option that sets the events channel of a config.
+//
+// If the autoClose parameter is specified, the channel will be automatically
+// closed when the connection to the server is closed.
 func WithEvents(events chan<- Event, autoClose ...bool) Option {
 	return func(c *config) {
 		c.events = events
@@ -23,12 +27,16 @@ func WithLog(log *slog.Logger) Option {
 	}
 }
 
+// WithDumpIn sets the writer to record all incoming messages.
+// It is used for logging during debugging.
 func WithDumpIn(w io.Writer) Option {
 	return func(c *config) {
 		c.r = w
 	}
 }
 
+// WithDumpOut sets the writer to record all outgoing commands.
+// It is used for logging during debugging.
 func WithDumpOut(w io.Writer) Option {
 	return func(c *config) {
 		c.w = w

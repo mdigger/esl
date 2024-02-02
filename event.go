@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// Event represents an ESL event with headers and a body.
 type Event struct {
 	headers map[string]string
 	body    []byte

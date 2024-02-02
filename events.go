@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// eventNames is a map that contains the predefined names of various events as keys.
 var eventNames = map[string]struct{}{
 	// spell-checker:disable
 	"CUSTOM":                   {},

@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// command defines a structure of a ESL command.
 type command struct {
 	name    string
 	params  string

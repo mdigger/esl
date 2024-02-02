@@ -12,6 +12,7 @@ import (
 
 // spell-checker:words myevents bgapi noevents nixevent sendevent
 
+// Client represents a client FreeSWITCH connection.
 type Client struct {
 	conn   *conn
 	chErr  chan error
