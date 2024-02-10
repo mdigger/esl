@@ -120,6 +120,21 @@ func (e Event) MarshalJSON() ([]byte, error) {
 	return json.Marshal(h)
 }
 
+// UnmarshalJSON is a Go function that unmarshal the Event from JSON.
+func (e *Event) UnmarshalJSON(data []byte) error {
+	e.headers = make(map[string]string)
+	if err := json.Unmarshal(data, &e.headers); err != nil {
+		return err
+	}
+
+	if e.headers["_body"] != "" {
+		e.body = []byte(e.headers["_body"])
+		delete(e.headers, "_body")
+	}
+
+	return nil
+}
+
 // LogValue returns the log value of the Event.
 //
 // It returns a slog.Value that contains the name and sequence of the Event.
