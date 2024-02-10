@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -46,16 +47,21 @@ func run() error {
 
 	events := make(chan esl.Event, 1)
 	go func() {
+		enc := json.NewEncoder(os.Stdout)
 		for ev := range events {
-			_ = ev
+			if err := enc.Encode(ev); err != nil {
+				slog.Error("failed to encode event", slog.String("err", err.Error()))
+				break
+			}
 		}
+
 		done()
 	}()
 
 	client, err := esl.Connect(cfg.addr, cfg.password,
-		esl.WithDumpIn(os.Stdout),
-		esl.WithLog(slog.Default()),
 		esl.WithEvents(events),
+		esl.WithLog(slog.Default()),
+		// esl.WithDumpIn(os.Stdout),
 	)
 	if err != nil {
 		return err
@@ -89,11 +95,22 @@ func initEnv(filename string) error {
 
 	s := bufio.NewScanner(f)
 	for s.Scan() {
+		// split to key and value
 		kv := strings.SplitN(s.Text(), "=", 2)
 		if len(kv) != 2 {
 			continue
 		}
-		if err := os.Setenv(kv[0], kv[1]); err != nil {
+
+		// skip comments
+		if strings.HasPrefix(kv[1], "#") {
+			continue
+		}
+
+		// skip end of line comments
+		v, _, _ := strings.Cut(kv[1], "#")
+
+		// set environment
+		if err := os.Setenv(kv[0], strings.TrimSpace(v)); err != nil {
 			return fmt.Errorf("failed to set env: %w", err)
 		}
 	}
