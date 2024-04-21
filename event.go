@@ -21,6 +21,14 @@ type Event struct {
 	body    []byte
 }
 
+// NewEvent returns a new Event with the given headers and body.
+func NewEvent(headers map[string]string, body []byte) Event {
+	return Event{
+		headers: headers,
+		body:    body,
+	}
+}
+
 // Get returns the value associated with the given key from the Event's headers.
 func (e Event) Get(key string) string {
 	return e.headers[key]
