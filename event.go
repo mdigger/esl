@@ -21,8 +21,30 @@ type Event struct {
 	body    []byte
 }
 
-// NewEvent returns a new Event with the given headers and body.
-func NewEvent(headers map[string]string, body []byte) Event {
+// NewEvent returns a new Event with the given name, headers and body.
+//
+// It panics if the name is empty or if the name is CUSTOM without the Event-Subclass name.
+func NewEvent(name string, headers map[string]string, body []byte) Event {
+	//nolint:forbidigo
+	switch name {
+	case "":
+		panic("event name cannot be empty")
+	case "CUSTOM":
+		panic("event name cannot be CUSTOM without Event-Subclass name")
+	}
+
+	if name, ok := isCustomEvent(name); ok {
+		headers["Event-Name"] = "CUSTOM"
+		headers["Event-Subclass"] = name
+	} else {
+		headers["Event-Name"] = name
+		delete(headers, "Event-Subclass")
+	}
+
+	if _, ok := headers["Content-Length"]; !ok {
+		delete(headers, "Content-Length")
+	}
+
 	return Event{
 		headers: headers,
 		body:    body,

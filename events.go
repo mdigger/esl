@@ -171,3 +171,14 @@ func buildEventNamesCmd(names ...string) string {
 
 	return native.String()
 }
+
+// isCustomEvent checks if the given event name is a custom event.
+func isCustomEvent(name string) (string, bool) {
+	if name, ok := strings.CutPrefix(name, "CUSTOM "); ok {
+		return name, true
+	}
+
+	_, ok := eventNames[name]
+
+	return name, !ok
+}
