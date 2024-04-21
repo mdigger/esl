@@ -20,14 +20,15 @@ type conn struct {
 }
 
 // newConn creates a new `conn` object.
-func newConn(c io.ReadWriter, log *slog.Logger) *conn {
+func newConn(rw io.ReadWriter, log *slog.Logger) *conn {
 	if log == nil {
 		log = nopLogger
 	}
 
 	return &conn{
-		r:   bufio.NewReader(c),
-		w:   bufio.NewWriter(c),
+		r:   bufio.NewReader(rw),
+		w:   bufio.NewWriter(rw),
+		mu:  sync.Mutex{},
 		log: log,
 	}
 }
@@ -63,8 +64,11 @@ func (c *conn) Write(cmd command) error {
 // Finally, it logs the received response and returns it along
 // with any error encountered during the process.
 func (c *conn) Read() (response, error) {
-	var contentLength int
-	var resp response
+	var (
+		contentLength int
+		resp          response
+	)
+
 	for {
 		line, err := c.readLine()
 		if err != nil {
@@ -75,6 +79,7 @@ func (c *conn) Read() (response, error) {
 			if resp.isZero() {
 				continue // skip empty response
 			}
+
 			break // the end of response header
 		}
 
@@ -120,15 +125,19 @@ func (c *conn) Read() (response, error) {
 // readLine reads a line from the conn's reader.
 func (c *conn) readLine() ([]byte, error) {
 	var fullLine []byte // to accumulate full line
+
 	for {
 		line, more, err := c.r.ReadLine()
 		if err != nil {
-			return nil, err
+			return nil, err //nolint:wrapcheck
 		}
+
 		if fullLine == nil && !more {
 			return line, nil // the whole line is read at once
 		}
+
 		fullLine = append(fullLine, line...) // accumulate
+
 		if !more {
 			return fullLine, nil // it's the end of line
 		}
@@ -149,14 +158,15 @@ func (c *conn) Auth(password string) error {
 	if err != nil {
 		return ErrMissingAuthRequest
 	}
-	switch ct := resp.ContentType(); ct {
+
+	switch contentType := resp.ContentType(); contentType {
 	case "auth/request": // OK
 	case "text/rude-rejection": // access denied
 		return ErrAccessDenied
-	case "text/disconnect-notice": // not authorized
+	case disconnectNotice: // not authorized
 		return io.EOF
 	default:
-		return fmt.Errorf("unexpected auth request content type: %s", ct)
+		return fmt.Errorf("unexpected auth request content type: %s", contentType)
 	}
 
 	if err := c.Write(cmd("auth", password)); err != nil {
@@ -167,9 +177,11 @@ func (c *conn) Auth(password string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read auth response: %w", err)
 	}
-	if ct := resp.ContentType(); ct != "command/reply" {
+
+	if ct := resp.ContentType(); ct != commandReply {
 		return fmt.Errorf("unexpected auth response content type: %s", ct)
 	}
+
 	if resp.Text() != "+OK accepted" {
 		return ErrInvalidPassword
 	}
@@ -189,6 +201,7 @@ func (c *conn) AuthTimeout(password string, timeout time.Duration) error {
 	select {
 	case err := <-chErr:
 		timer.Stop()
+
 		return err
 	case <-timer.C:
 		return ErrTimeout

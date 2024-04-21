@@ -46,9 +46,9 @@ func (r response) Body() string {
 // AsErr checks the content type of the response and returns an error if it matches a specific case.
 func (r response) AsErr() error {
 	switch r.contentType {
-	case "text/disconnect-notice":
+	case disconnectNotice:
 		return io.EOF
-	case "command/reply":
+	case commandReply:
 		if strings.HasPrefix(r.text, "-ERR") {
 			return errors.New(r.text)
 		}
@@ -68,23 +68,26 @@ func (r response) AsErr() error {
 // response body to the writer.
 func (r response) WriteTo(w io.Writer) (int64, error) {
 	//nolint:errcheck // writing to buffer
-	return writeTo(w, func(w *bufio.Writer) {
-		w.WriteString("Content-Type: ")
-		w.WriteString(r.contentType)
+	return writeTo(w, func(buf *bufio.Writer) {
+		buf.WriteString("Content-Type: ")
+		buf.WriteString(r.contentType)
+
 		if r.text != "" {
-			w.WriteByte('\n')
-			w.WriteString("Reply-Text: ")
-			w.WriteString(r.text)
+			buf.WriteByte('\n')
+			buf.WriteString("Reply-Text: ")
+			buf.WriteString(r.text)
 		}
+
 		if r.jobUUID != "" {
-			w.WriteString("\nJob-UUID: ")
-			w.WriteString(r.jobUUID)
+			buf.WriteString("\nJob-UUID: ")
+			buf.WriteString(r.jobUUID)
 		}
+
 		if length := len(r.body); length > 0 {
-			w.WriteString("\nContent-Length: ")
-			w.WriteString(strconv.Itoa(length))
-			w.WriteString("\n\n")
-			w.Write(r.body)
+			buf.WriteString("\nContent-Length: ")
+			buf.WriteString(strconv.Itoa(length))
+			buf.WriteString("\n\n")
+			buf.Write(r.body)
 		}
 	})
 }
@@ -98,9 +101,11 @@ func (r response) String() string {
 func (r response) LogValue() slog.Value {
 	attr := make([]slog.Attr, 0, 3)
 	attr = append(attr, slog.String("type", r.contentType))
+
 	if r.jobUUID != "" {
 		attr = append(attr, slog.String("job-uuid", r.jobUUID))
 	}
+
 	if err := r.AsErr(); err != nil {
 		attr = append(attr, slog.String("error", err.Error()))
 	} else if length := r.ContentLength(); length > 0 {
@@ -120,7 +125,7 @@ func (r response) isZero() bool {
 // It expects the response to have a content type of "text/event-plain".
 // It returns an Event struct and an error if the content type is not supported.
 func (r response) toEvent() (Event, error) {
-	if ct := r.ContentType(); ct != "text/event-plain" {
+	if ct := r.ContentType(); ct != eventPlain {
 		return Event{}, fmt.Errorf("unsupported event content type: %s", ct)
 	}
 

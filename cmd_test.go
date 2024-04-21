@@ -6,7 +6,7 @@ import (
 )
 
 func TestCmd(t *testing.T) {
-	tt := []struct {
+	tests := []struct {
 		command
 		want string
 	}{
@@ -52,7 +52,8 @@ func TestCmd(t *testing.T) {
 			"event plain ALL",
 		},
 		{
-			cmd("event", "plain", "CHANNEL_CREATE", "CHANNEL_DESTROY", "CUSTOM", "conference::maintenance", "sofia::register", "sofia::expire"),
+			cmd("event", "plain", "CHANNEL_CREATE", "CHANNEL_DESTROY", "CUSTOM", "conference::maintenance",
+				"sofia::register", "sofia::expire"),
 			"event plain CHANNEL_CREATE CHANNEL_DESTROY CUSTOM conference::maintenance sofia::register sofia::expire",
 		},
 		{
@@ -257,11 +258,12 @@ func TestCmd(t *testing.T) {
 		// spell-checker:enable
 	}
 
-	for i, tc := range tt {
+	for i, tc := range tests {
 		got := tc.command
 		if got.String() != tc.want {
 			t.Errorf("[%d] got: %s,\nwant: %s", i, got, tc.want)
 		}
+
 		slog.Info("esl: test", slog.Any("cmd", got))
 	}
 }

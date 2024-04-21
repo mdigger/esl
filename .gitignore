@@ -3,3 +3,5 @@
 .env
 *.log
 *.out
+cmd/fs_event_log/fs_event_log
+cmd/fs_event_log/fs_events_view

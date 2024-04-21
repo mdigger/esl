@@ -6,6 +6,8 @@ import (
 )
 
 // eventNames is a map that contains the predefined names of various events as keys.
+//
+//nolint:gochecknoglobals
 var eventNames = map[string]struct{}{
 	// spell-checker:disable
 	"CUSTOM":                   {},
@@ -118,30 +120,35 @@ func buildEventNamesCmd(names ...string) string {
 		custom   bytes.Buffer
 		isCustom bool
 	)
+
 	for _, name := range names {
-		if name == "" {
+		switch {
+		case name == "":
 			continue
-		}
-		if strings.EqualFold(name, eventAll) {
+		case strings.EqualFold(name, eventAll):
 			return eventAll
-		}
-		if strings.EqualFold(name, "CUSTOM") {
+		case strings.EqualFold(name, "CUSTOM"):
 			isCustom = true
+
 			continue
-		}
-		// main event name
-		if _, ok := eventNames[name]; ok {
-			if native.Len() > 0 {
-				native.WriteByte(' ')
+		default:
+			if _, ok := eventNames[name]; ok {
+				if native.Len() > 0 {
+					native.WriteByte(' ')
+				}
+
+				native.WriteString(name)
+
+				continue
 			}
-			native.WriteString(name)
-			continue
+
+			// custom event name
+			if custom.Len() > 0 {
+				custom.WriteByte(' ')
+			}
+
+			custom.WriteString(strings.TrimPrefix(name, "CUSTOM "))
 		}
-		// custom event name
-		if custom.Len() > 0 {
-			custom.WriteByte(' ')
-		}
-		custom.WriteString(strings.TrimPrefix(name, "CUSTOM "))
 	}
 
 	// join event names
@@ -149,7 +156,9 @@ func buildEventNamesCmd(names ...string) string {
 		if native.Len() > 0 {
 			native.WriteByte(' ')
 		}
+
 		native.WriteString("CUSTOM")
+
 		if custom.Len() > 0 {
 			native.WriteByte(' ')
 			custom.WriteTo(&native) //nolint:errcheck // ignore write error

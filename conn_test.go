@@ -15,27 +15,33 @@ func TestConnection_Read(t *testing.T) {
 	defer f.Close()
 
 	r := newConn(f, nil)
+
 	for {
 		resp, err := r.Read()
-		if errors.Is(err, io.EOF) {
-			break
-		}
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
 			t.Fatal(err)
 		}
+
 		t.Logf("resp:  %s [len: %d]", resp.ContentType(), resp.ContentLength())
+
 		if resp.isZero() {
 			t.Error("response is empty")
 		}
+
 		_ = resp.String()
 
-		if resp.ContentType() != "text/event-plain" {
+		if resp.ContentType() != eventPlain {
 			continue
 		}
 
 		event, err := resp.toEvent()
 		if err != nil {
 			t.Error(err)
+
 			continue
 		}
 
@@ -44,6 +50,7 @@ func TestConnection_Read(t *testing.T) {
 		}
 
 		t.Logf("event: %s (seq: %d)", event.Name(), event.Sequence())
+
 		if event.ContentLength() > 0 {
 			t.Logf("body:\n%s", event.Body())
 		}

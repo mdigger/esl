@@ -73,7 +73,8 @@ func getConfig(opts ...Option) config {
 	return cfg
 }
 
-// dumper returns an io.ReadWriter that performs additional operations on the provided io.ReadWriter based on the configuration provided.
+// dumper returns an io.ReadWriter that performs additional operations on the provided io.ReadWriter based on the
+// configuration provided.
 func (cfg config) dumper(rw io.ReadWriter) io.ReadWriter {
 	if cfg.r == nil && cfg.w == nil {
 		return rw
@@ -95,7 +96,7 @@ func (cfg config) dumper(rw io.ReadWriter) io.ReadWriter {
 	return &dump
 }
 
-var nopLogger = slog.New(new(nopLogHandler))
+var nopLogger = slog.New(new(nopLogHandler)) //nolint:gochecknoglobals
 
 // nopLogHandler is an empty struct that implements the slog.Handler interface.
 // It is used to create a no-op logger that ignores all log records.

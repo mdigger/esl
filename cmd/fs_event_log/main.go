@@ -7,7 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -18,8 +17,6 @@ import (
 )
 
 func main() {
-	log.SetFlags(0)
-
 	if err := run(); err != nil && !errors.Is(err, context.Canceled) {
 		slog.Error("ended", slog.String("err", err.Error()))
 		os.Exit(1)
@@ -51,6 +48,7 @@ func run() error {
 		for ev := range events {
 			if err := enc.Encode(ev); err != nil {
 				slog.Error("failed to encode event", slog.String("err", err.Error()))
+
 				break
 			}
 		}
@@ -61,25 +59,26 @@ func run() error {
 	client, err := esl.Connect(cfg.addr, cfg.password,
 		esl.WithEvents(events),
 		esl.WithLog(slog.Default()),
-		// esl.WithDumpIn(os.Stdout),
 	)
 	if err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 	defer client.Close()
 
 	if err := client.Subscribe(flag.Args()...); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 
 	<-ctx.Done()
-	return ctx.Err()
+
+	return ctx.Err() //nolint:wrapcheck
 }
 
 func envDefault(name, def string) string {
 	if v, ok := os.LookupEnv(name); ok {
 		return v
 	}
+
 	return def
 }
 
@@ -89,33 +88,34 @@ func initEnv(filename string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
+
 		return fmt.Errorf("failed to open env file: %w", err)
 	}
 	defer f.Close()
 
-	s := bufio.NewScanner(f)
-	for s.Scan() {
+	scan := bufio.NewScanner(f)
+	for scan.Scan() {
 		// split to key and value
-		kv := strings.SplitN(s.Text(), "=", 2)
-		if len(kv) != 2 {
+		keyValue := strings.SplitN(scan.Text(), "=", 2)
+		if len(keyValue) != 2 {
 			continue
 		}
 
 		// skip comments
-		if strings.HasPrefix(kv[1], "#") {
+		if strings.HasPrefix(keyValue[1], "#") {
 			continue
 		}
 
 		// skip end of line comments
-		v, _, _ := strings.Cut(kv[1], "#")
+		v, _, _ := strings.Cut(keyValue[1], "#")
 
 		// set environment
-		if err := os.Setenv(kv[0], strings.TrimSpace(v)); err != nil {
+		if err := os.Setenv(keyValue[0], strings.TrimSpace(v)); err != nil {
 			return fmt.Errorf("failed to set env: %w", err)
 		}
 	}
 
-	if err := s.Err(); err != nil {
+	if err := scan.Err(); err != nil {
 		return fmt.Errorf("failed to parse env file: %w", err)
 	}
 

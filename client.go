@@ -21,6 +21,8 @@ type Client struct {
 }
 
 // Default timeout options.
+//
+//nolint:gochecknoglobals
 var (
 	DialTimeout = time.Second * 5
 	AuthTimeout = time.Second * 2
@@ -61,6 +63,7 @@ func NewClient(rwc io.ReadWriteCloser, password string, opts ...Option) (*Client
 
 	if err := conn.AuthTimeout(password, AuthTimeout); err != nil {
 		rwc.Close()
+
 		return nil, fmt.Errorf("failed to auth: %w", err)
 	}
 
@@ -80,7 +83,8 @@ func NewClient(rwc io.ReadWriteCloser, password string, opts ...Option) (*Client
 // Close closes the client connection.
 func (c *Client) Close() error {
 	c.sendRecv(cmd("exit")) //nolint:errcheck // ignore send error
-	return c.closer.Close()
+
+	return c.closer.Close() //nolint:wrapcheck
 }
 
 // API sends a command to the API and returns the response body or an error.
@@ -107,7 +111,7 @@ func (c *Client) API(command string) (string, error) {
 // When the command is done executing, FreeSWITCH fires an event with the result
 // and you can compare that to the Job-UUID to see what the result was. In order
 // to receive this event, you will need to subscribe to BACKGROUND_JOB events.
-func (c *Client) Job(command string) (id string, err error) {
+func (c *Client) Job(command string) (id string, err error) { //nolint:nonamedreturns
 	resp, err := c.sendRecv(cmd("bgapi", command))
 	if err != nil {
 		return "", err
@@ -127,6 +131,7 @@ func (c *Client) Job(command string) (id string, err error) {
 // to receive this event, you will need to subscribe to BACKGROUND_JOB events.
 func (c *Client) JobWithID(command, id string) error {
 	_, err := c.sendRecv(cmd("bgapi", command).WithJobUUID(id))
+
 	return err
 }
 
@@ -138,6 +143,7 @@ func (c *Client) JobWithID(command, id string) error {
 func (c *Client) Subscribe(names ...string) error {
 	cmdNames := buildEventNamesCmd(names...)
 	_, err := c.sendRecv(cmd("event", cmdNames))
+
 	return err
 }
 
@@ -145,7 +151,9 @@ func (c *Client) Subscribe(names ...string) error {
 //
 // Suppress the specified type of event.
 // If name is empty then all events will be suppressed.
-func (c *Client) Unsubscribe(names ...string) (err error) {
+func (c *Client) Unsubscribe(names ...string) error {
+	var err error
+
 	cmdNames := buildEventNamesCmd(names...)
 	if cmdNames == eventAll {
 		_, err = c.sendRecv(cmd("noevents"))
@@ -176,6 +184,7 @@ func (c *Client) Unsubscribe(names ...string) (err error) {
 // events for multiple users on a particular conference.
 func (c *Client) Filter(eventHeader, valueToFilter string) error {
 	_, err := c.sendRecv(cmd("filter", eventHeader, valueToFilter))
+
 	return err
 }
 
@@ -186,6 +195,7 @@ func (c *Client) Filter(eventHeader, valueToFilter string) error {
 // is no use of the filter.
 func (c *Client) FilterDelete(eventHeader, valueToFilter string) error {
 	_, err := c.sendRecv(cmd("filter delete", eventHeader, valueToFilter))
+
 	return err
 }
 
@@ -202,6 +212,7 @@ func (c *Client) FilterDelete(eventHeader, valueToFilter string) error {
 // use a filter.
 func (c *Client) MyEvent(uuid string) error {
 	_, err := c.sendRecv(cmd("myevents", uuid))
+
 	return err
 }
 
@@ -220,6 +231,7 @@ func (c *Client) DivertEvents(on ...bool) error {
 	}
 
 	_, err := c.sendRecv(cmd("divert_events", val))
+
 	return err
 }
 
@@ -227,6 +239,7 @@ func (c *Client) DivertEvents(on ...bool) error {
 func (c *Client) SendEvent(name string, headers map[string]string, body string) error {
 	_, err := c.sendRecv(
 		cmd("sendevent", name).WithMessage(headers, body))
+
 	return err
 }
 
@@ -235,18 +248,28 @@ func (c *Client) SendEvent(name string, headers map[string]string, body string) 
 func (c *Client) SendMsg(uuid string, headers map[string]string, body string) error {
 	_, err := c.sendRecv(
 		cmd("sendmsg", uuid).WithMessage(headers, body))
+
 	return err
 }
+
+const (
+	commandReply     = "command/reply"
+	disconnectNotice = "text/disconnect-notice"
+	eventPlain       = "text/event-plain"
+)
 
 // runReader is a method of the Client struct that reads responses from the connection and handles them accordingly.
 func (c *Client) runReader(events chan<- Event, autoClose bool) {
 	c.conn.log.Info("esl: run response reading")
+
 	defer func() {
 		close(c.chResp)
 		close(c.chErr)
+
 		if autoClose && events != nil {
 			close(events)
 		}
+
 		c.conn.log.Info("esl: response reader stopped")
 	}()
 
@@ -254,14 +277,15 @@ func (c *Client) runReader(events chan<- Event, autoClose bool) {
 		resp, err := c.conn.Read()
 		if err != nil {
 			c.chErr <- err
+
 			return // break on read error
 		}
 
-		switch ct := resp.ContentType(); ct {
-		case "api/response", "command/reply":
+		switch contentType := resp.ContentType(); contentType {
+		case "api/response", commandReply:
 			c.chResp <- resp
 
-		case "text/event-plain":
+		case eventPlain:
 			if events == nil {
 				continue // ignore events if no events channel is provided
 			}
@@ -270,18 +294,19 @@ func (c *Client) runReader(events chan<- Event, autoClose bool) {
 			if err != nil {
 				c.conn.log.Error("esl: failed to parse event",
 					slog.String("err", err.Error()))
+
 				continue // ignore bad event
 			}
 
 			c.conn.log.Info("esl: handle", slog.Any("event", event))
 			events <- event
 
-		case "text/disconnect-notice":
+		case disconnectNotice:
 			return // disconnect
 
 		default:
 			c.conn.log.Warn("esl: unexpected response",
-				slog.String("content-type", ct))
+				slog.String("content-type", contentType))
 		}
 	}
 }
@@ -302,12 +327,14 @@ func (c *Client) read() (response, error) {
 		if ok {
 			return response{}, err
 		}
+
 		return response{}, io.EOF // connection closed
 
 	case resp := <-c.chResp:
 		if err := resp.AsErr(); err != nil {
 			return response{}, err // response with error message
 		}
+
 		return resp, nil
 	}
 }

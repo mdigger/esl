@@ -13,10 +13,11 @@ import (
 //
 // It returns the number of bytes written and an error if any.
 func writeTo(w io.Writer, f func(w *bufio.Writer)) (int64, error) {
-	bw := bufio.NewWriter(w)                     // initialize buffered writer
-	nn := bw.Buffered()                          // store current buffered length
-	f(bw)                                        // execute function
-	return int64(bw.Buffered() - nn), bw.Flush() // write buffered content
+	buf := bufio.NewWriter(w) // initialize buffered writer
+	nn := buf.Buffered()      // store current buffered length
+	f(buf)                    // execute function
+
+	return int64(buf.Buffered() - nn), buf.Flush() // write buffered content
 }
 
 // wstr concatenates the string representation of the io.WriterTo interface
@@ -33,13 +34,15 @@ func writeTo(w io.Writer, f func(w *bufio.Writer)) (int64, error) {
 // the io.WriterTo parameter.
 func wstr(w io.WriterTo) string {
 	var b strings.Builder
+
 	w.WriteTo(&b) //nolint:errcheck // write to buffer
+
 	return b.String()
 }
 
 // trimLeft removes leading spaces and tabs from the given byte slice and returns the result as a string.
 func trimLeft(b []byte) string {
-	for i := 0; i < len(b); i++ {
+	for i := range len(b) {
 		if b[i] != ' ' && b[i] != '\t' {
 			return string(b[i:])
 		}

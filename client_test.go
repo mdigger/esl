@@ -17,18 +17,18 @@ func TestClient(t *testing.T) {
 	go func() {
 		for ev := range events {
 			t.Logf("event %s [%d]", ev.Name(), ev.Sequence())
+
 			if ev.ContentLength() > 0 {
 				t.Logf("body: %s", ev.Body())
 			}
 		}
+
 		t.Log("events channel closed")
 	}()
 
 	client, err := Connect(addr, password,
 		WithEvents(events, true),
 		WithLog(slog.Default()),
-		// WithDumpIn(os.Stdout),
-		// WithDumpOut(os.Stderr),
 	)
 	if err != nil {
 		t.Skip("FreeSWITCH not running:", err)
@@ -43,6 +43,7 @@ func TestClient(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
 	_ = msg
 	// t.Log(msg)
 
@@ -56,31 +57,13 @@ func TestClient(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
 	if jobid == "" {
 		t.Error("incorrect job id:", jobid)
 	}
 
 	time.Sleep(time.Second * 5)
 }
-
-// for _, cmd := range []string{
-// 	// spell-checker:disable
-// 	"fsctl debug_level 9",
-// 	"fsctl loglevel 7",
-// 	"fsctl debug_sql",
-// 	"fsctl last_sps",
-// 	`json {"command" : "status", "data" : ""}`,
-// 	"md5 freeswitch-is-awesome",
-// 	"module_exists mod_callcenter",
-// 	"show channels as json",
-// 	"status",
-// 	// spell-checker:enable
-// } {
-// 	_, err := client.Job(cmd)
-// 	if err != nil {
-// 		return err
-// 	}
-// }
 
 func TestClientDefault(t *testing.T) {
 	client, err := Connect("", "ClueCon",
@@ -89,5 +72,6 @@ func TestClientDefault(t *testing.T) {
 	if err != nil {
 		t.Skip("FreeSWITCH not running:", err)
 	}
+
 	client.Close()
 }

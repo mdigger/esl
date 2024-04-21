@@ -23,6 +23,7 @@ func Example() {
 	if err != nil {
 		panic(err)
 	}
+
 	fmt.Println(msg)
 
 	// subscribe to BACKGROUND_JOB events

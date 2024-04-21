@@ -55,8 +55,8 @@ func (e Event) ContentLength() int {
 
 // Sequence returns the event sequence as an int64.
 func (e Event) Sequence() int64 {
-	//nolint:errcheck // return 0 on error
 	i, _ := strconv.ParseInt(e.Get("Event-Sequence"), 10, 64)
+
 	return i
 }
 
@@ -83,31 +83,35 @@ func (e Event) Body() string {
 // WriteTo writes the event to the given writer.
 func (e Event) WriteTo(w io.Writer) (int64, error) {
 	keys := make([]string, 0, len(e.headers))
+
 	for k := range e.headers {
 		if strings.EqualFold(k, "Content-Length") {
 			continue // ignore content-length
 		}
+
 		keys = append(keys, k)
 	}
+
 	slices.Sort(keys)
 
 	//nolint:errcheck // writing to buffer
-	return writeTo(w, func(w *bufio.Writer) {
-		for _, k := range keys {
-			w.WriteString(k)
-			w.WriteString(": ")
+	return writeTo(w, func(buf *bufio.Writer) {
+		for _, key := range keys {
+			buf.WriteString(key)
+			buf.WriteString(": ")
 			// Since messaging format is similar to RFC 2822, if you are using any
 			// libraries that follow the line wrapping recommendation of RFC 2822 then
 			// make sure that you disable line wrapping as FreeSWITCH will ignore
 			// wrapped lines.
-			skipNewLines.WriteString(w, e.headers[k])
-			w.WriteByte('\n')
+			skipNewLines.WriteString(buf, e.headers[key])
+			buf.WriteByte('\n')
 		}
+
 		if length := len(e.body); length > 0 {
-			w.WriteString("Content-Length: ")
-			w.WriteString(strconv.Itoa(length))
-			w.WriteString("\n\n")
-			w.Write(e.body)
+			buf.WriteString("Content-Length: ")
+			buf.WriteString(strconv.Itoa(length))
+			buf.WriteString("\n\n")
+			buf.Write(e.body)
 		}
 	})
 }
@@ -119,13 +123,13 @@ func (e Event) String() string {
 
 // MarshalJSON is a Go function that marshals the Event to JSON.
 func (e Event) MarshalJSON() ([]byte, error) {
-	h := e.headers
+	header := e.headers
 	if len(e.body) > 0 {
-		h = maps.Clone(h)
-		h["_body"] = string(e.body)
+		header = maps.Clone(header)
+		header["_body"] = string(e.body)
 	}
 
-	return json.Marshal(h)
+	return json.Marshal(header) //nolint:wrapcheck
 }
 
 // LogValue returns the log value of the Event.
@@ -137,6 +141,7 @@ func (e Event) LogValue() slog.Value {
 		slog.String("name", e.Name()),
 		slog.Int64("sequence", e.Sequence()),
 	)
+
 	if jobUUID := e.Get("Job-UUID"); jobUUID != "" {
 		attr = append(attr, slog.String("job-uuid", jobUUID))
 	}
@@ -147,25 +152,28 @@ func (e Event) LogValue() slog.Value {
 // skipNewLines replaces newline characters with spaces when writing
 // message headers. This ensures headers do not contain newlines, as
 // required by the FreeSWITCH messaging protocol.
-var skipNewLines = strings.NewReplacer("\r\n", " ", "\n", " ")
+var skipNewLines = strings.NewReplacer("\r\n", " ", "\n", " ") //nolint:gochecknoglobals
 
 // parseEvent parses the given byte slice as an event and returns an Event and an error.
 func parseEvent(body []byte) (Event, error) {
-	e := Event{
+	event := Event{
 		headers: make(map[string]string, upcomingHeaderKeys(body)),
+		body:    nil,
 	}
+
 	for len(body) > 0 {
 		var line []byte
 		if i := bytes.IndexByte(body, '\n'); i >= 0 {
 			line, body = body[:i], body[i+1:]
 		}
+
 		if len(line) == 0 || (len(line) == 1 && line[0] == '\r') {
 			break // the end of headers
 		}
 
 		idx := bytes.IndexByte(line, ':')
 		if idx <= 0 {
-			return e, fmt.Errorf("malformed header line: %q", line)
+			return event, fmt.Errorf("malformed header line: %q", line)
 		}
 
 		key, value := string(line[:idx]), trimLeft(line[idx+1:])
@@ -173,30 +181,33 @@ func parseEvent(body []byte) (Event, error) {
 			value = v
 		}
 
-		e.headers[key] = value
+		event.headers[key] = value
 	}
 
-	//nolint:errcheck // use 0 as length on error
-	if length, _ := strconv.Atoi(e.headers["Content-Length"]); length > 0 {
-		e.body = make([]byte, length)
-		if copy(e.body, body) != length {
-			return e, fmt.Errorf("failed to read body: %w", io.ErrUnexpectedEOF)
+	if length, _ := strconv.Atoi(event.headers["Content-Length"]); length > 0 {
+		event.body = make([]byte, length)
+		if copy(event.body, body) != length {
+			return event, fmt.Errorf("failed to read body: %w", io.ErrUnexpectedEOF)
 		}
 	}
 
-	return e, nil
+	return event, nil
 }
 
 // upcomingHeaderKeys returns the number of upcoming header keys in the given byte slice.
-func upcomingHeaderKeys(body []byte) (n int) {
+func upcomingHeaderKeys(body []byte) int {
+	var n int
+
 	for len(body) > 0 && n < 1000 {
 		var line []byte
 		if i := bytes.IndexByte(body, '\n'); i >= 0 {
 			line, body = body[:i], body[i+1:]
 		}
+
 		if len(line) == 0 || (len(line) == 1 && line[0] == '\r') {
 			break
 		}
+
 		n++
 	}
 
