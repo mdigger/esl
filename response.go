@@ -94,7 +94,7 @@ func (r response) WriteTo(w io.Writer) (int64, error) {
 
 // String returns the string representation of the response.
 func (r response) String() string {
-	return wstr(r)
+	return writeStr(r)
 }
 
 // LogValue returns a slog.Value object that represents the log attributes for the response.

@@ -91,7 +91,7 @@ func (c command) WriteTo(w io.Writer) (int64, error) {
 
 // String returns the string representation of the command.
 func (c command) String() string {
-	return wstr(c)
+	return writeStr(c)
 }
 
 // LogValue returns a slog.Value object representing the command.

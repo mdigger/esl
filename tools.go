@@ -20,7 +20,7 @@ func writeTo(w io.Writer, f func(w *bufio.Writer)) (int64, error) {
 	return int64(buf.Buffered() - nn), buf.Flush() // write buffered content
 }
 
-// wstr concatenates the string representation of the io.WriterTo interface
+// writeStr concatenates the string representation of the io.WriterTo interface
 // parameter into a single string.
 //
 // It takes an io.WriterTo parameter, which is an interface type that can be
@@ -32,7 +32,7 @@ func writeTo(w io.Writer, f func(w *bufio.Writer)) (int64, error) {
 //
 // It returns a string that contains the concatenated string representation of
 // the io.WriterTo parameter.
-func wstr(w io.WriterTo) string {
+func writeStr(w io.WriterTo) string {
 	var b strings.Builder
 
 	w.WriteTo(&b) //nolint:errcheck // write to buffer

@@ -118,7 +118,7 @@ func (e Event) WriteTo(w io.Writer) (int64, error) {
 
 // String returns a string representation of the Event.
 func (e Event) String() string {
-	return wstr(e)
+	return writeStr(e)
 }
 
 // MarshalJSON is a Go function that marshals the Event to JSON.
