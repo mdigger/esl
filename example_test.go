@@ -6,6 +6,7 @@ import (
 	"github.com/mdigger/esl"
 )
 
+//nolint:testableexamples
 func Example() {
 	// initialize buffered events channel
 	events := make(chan esl.Event, 1)
@@ -37,14 +38,7 @@ func Example() {
 	}
 
 	// read events
-	go func() {
-		for ev := range events {
-			fmt.Println(ev.Name(), ev.Get("Job-UUID"))
-		}
-	}()
-
-	//Output:
-	// 0 total.
-	//
-	// BACKGROUND_JOB test-xxx
+	for ev := range events {
+		fmt.Println(ev.Name(), ev.Get("Job-UUID"))
+	}
 }

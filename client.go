@@ -18,6 +18,7 @@ type Client struct {
 	chErr  chan error
 	chResp chan response
 	closer io.Closer
+	done   chan struct{}
 }
 
 // Default timeout options.
@@ -72,6 +73,7 @@ func NewClient(rwc io.ReadWriteCloser, password string, opts ...Option) (*Client
 		chErr:  make(chan error, 1),
 		chResp: make(chan response),
 		closer: rwc,
+		done:   make(chan struct{}),
 	}
 
 	go client.runReader(cfg.events, cfg.autoClose)
@@ -85,6 +87,11 @@ func (c *Client) Close() error {
 	c.sendRecv(cmd("exit")) //nolint:errcheck // ignore send error
 
 	return c.closer.Close() //nolint:wrapcheck
+}
+
+// Done returns a channel that will be closed when the client connection is closed.
+func (c *Client) Done() <-chan struct{} {
+	return c.done
 }
 
 // API sends a command to the API and returns the response body or an error.
@@ -265,6 +272,7 @@ func (c *Client) runReader(events chan<- Event, autoClose bool) {
 	defer func() {
 		close(c.chResp)
 		close(c.chErr)
+		close(c.done)
 
 		if autoClose && events != nil {
 			close(events)
